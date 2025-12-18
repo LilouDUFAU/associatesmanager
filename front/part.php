@@ -3,7 +3,11 @@
 require_once __DIR__ . '/../../../inc/includes.php';
 
 Session::checkLoginUser();
-Session::checkRight('plugin_associatesmanager', READ);
+
+// Vérifier les droits granulaires
+if (!PluginAssociatesmanagerRight::canRead()) {
+   Html::displayRightError();
+}
 
 Html::header(
    PluginAssociatesmanagerPart::getTypeName(Session::getPluralNumber()),
@@ -13,11 +17,20 @@ Html::header(
    'part'
 );
 
+// Inline stylesheet to avoid web-path issues (plugin webdir may vary)
+$amCss = __DIR__ . '/../css/associates.css';
+if (is_readable($amCss)) {
+   echo '<style>' . file_get_contents($amCss) . '</style>';
+}
+
+// Shell page container
+echo "<div class='am-page'><div class='am-stack'>";
+
 // Add "New" button in header if user has CREATE right
-if (Session::haveRight('plugin_associatesmanager', CREATE)) {
-   echo "<div class='spaced'>";
+if (PluginAssociatesmanagerRight::canCreate()) {
+   echo "<div class='am-toolbar'>";
    echo "<a href='" . PluginAssociatesmanagerPart::getFormURL() . "' class='btn btn-primary'>";
-   echo "<i class='fas fa-plus'></i> ";
+   echo "<i class='fas fa-plus'></i>";
    echo "<span>Nouvelle part</span>";
    echo "</a>";
    echo "</div>";
@@ -35,48 +48,56 @@ $date_to     = '';
 $sort_by     = ($_GET['sort_by'] ?? 'date_attribution');
 $sort_dir    = (strtoupper($_GET['sort_dir'] ?? 'DESC') === 'ASC') ? 'ASC' : 'DESC';
 
-echo "<form id='parts-filters' method='get' class='form-inline spaced'>";
-echo Html::hidden('id', ['value' => 0]);
-// Supplier filter
-echo "<label class='mr-2'>Fournisseur</label>";
-Supplier::dropdown(['name' => 'supplier_id', 'value' => $supplier_id]);
-// Associate filter
-echo "<label class='ml-3 mr-2'>Associé</label>";
-PluginAssociatesmanagerAssociate::dropdown(['name' => 'associates_id', 'value' => $associate_id]);
-// Part type filter (distinct libelle)
-echo "<label class='ml-3 mr-2'>Type</label>";
-// build libelle options
-// Some DB wrapper configurations may not handle SELECT DISTINCT expressions
-// reliably in all environments. Fetch all libelle values and deduplicate in PHP.
-$libelle_it = $DB->request([
-   'SELECT' => ['libelle'],
-   'FROM'   => 'glpi_plugin_associatesmanager_parts',
-   'ORDER'  => 'libelle'
+echo "<div class='am-card'>";
+echo "<div class='am-filters'>";
+
+// Supplier filter - build options
+echo "<label>Fournisseur";
+echo "<select id='filter-supplier'><option value=''>Tous</option>";
+$supplier_it = $DB->request([
+   'SELECT' => ['id', 'name'],
+   'FROM'   => 'glpi_suppliers',
+   'WHERE'  => ['is_deleted' => 0],
+   'ORDER'  => 'name'
 ]);
-$libelle_vals = [ '' => Dropdown::EMPTY_VALUE ];
-$seen = [];
-foreach ($libelle_it as $r) {
-   $lbl = trim((string)($r['libelle'] ?? ''));
-   if ($lbl === '' || isset($seen[$lbl])) { continue; }
-   $seen[$lbl] = true;
-   $libelle_vals[$lbl] = $lbl;
+foreach ($supplier_it as $s) {
+   $selected = ($supplier_id == $s['id']) ? 'selected' : '';
+   echo "<option value='" . $s['id'] . "' " . $selected . ">" . htmlspecialchars($s['name']) . "</option>";
 }
-Dropdown::showFromArray('libelle', $libelle_vals, ['value' => $part_label]);
+echo "</select>";
+echo "</label>";
 
-// Search removed per request
+// Associate filter - build options
+echo "<label>Associé";
+echo "<select id='filter-assoc'><option value=''>Tous</option>";
+$assoc_it = $DB->request([
+   'SELECT' => ['id', 'name'],
+   'FROM'   => 'glpi_plugin_associatesmanager_associates',
+   'ORDER'  => 'name'
+]);
+foreach ($assoc_it as $a) {
+   $selected = ($associate_id == $a['id']) ? 'selected' : '';
+   echo "<option value='" . $a['id'] . "' " . $selected . ">" . htmlspecialchars($a['name']) . "</option>";
+}
+echo "</select>";
+echo "</label>";
 
-// Date range removed per request
+// Type filter (Person/Company)
+echo "<label>Type";
+echo "<select id='filter-type'><option value=''>Tous</option><option value='1'>Personne</option><option value='0'>Société</option></select>";
+echo "</label>";
 
-// Sort controls
-echo "<label class='ml-3 mr-2'>Trier par</label>";
-$sort_options = [ 'date_attribution' => 'Date d\'attribution', 'nbparts' => 'Nombre de parts', 'percent' => 'Pourcentage' ];
-Dropdown::showFromArray('sort_by', $sort_options, ['value' => $sort_by]);
-Dropdown::showFromArray('sort_dir', [ 'DESC' => 'Desc', 'ASC' => 'Asc' ], ['value' => $sort_dir]);
+// Search box
+echo "<label>Recherche";
+echo "<input type='search' id='filter-text' placeholder='Nom, email, ville...'>";
+echo "</label>";
 
-echo "<button class='btn btn-secondary ml-3' type='submit'>Filtrer</button>";
-// Reset button: restore filter fields to their base state (server-provided defaults)
-// reset button removed per request
-echo "</form>";
+// Sort buttons
+echo "<button id='sort-nb' class='btn btn-outline-secondary btn-sm' type='button' data-order='desc'>Tri parts ↓</button>";
+echo "<button id='sort-pct' class='btn btn-outline-secondary btn-sm' type='button' data-order='desc'>Tri % ↓</button>";
+
+echo "</div>";
+echo "</div>"; // am-card
 
 // JavaScript: restore base filter values and submit the form
 // Base/default values are taken from PHP variables above
@@ -125,11 +146,9 @@ if ($sort_by === 'percent') {
    $order_sql = 'p.' . $sort_by . ' ' . $sort_dir;
 }
 
-// Use DB wrapper structured request
+// Use DB wrapper structured request and include supplier.nbparttotal directly for reliability
 $request_args = [
-   // Only select parts columns here; we'll fetch associate/supplier details
-   // in separate queries to avoid ambiguity and aliasing issues.
-   'SELECT' => [ 'p.*' ],
+   'SELECT' => [ 'p.*', 's.name AS supplier_name', 's.nbparttotal AS supplier_nbparttotal' ],
    'FROM' => 'glpi_plugin_associatesmanager_parts AS p',
    'LEFT JOIN' => [
       'glpi_plugin_associatesmanager_associates AS a' => ['a.id' => 'p.associates_id'],
@@ -180,19 +199,7 @@ if (!empty($_GET['debug_filters'])) {
    echo htmlspecialchars("request_args:\n" . var_export($debug['request_args'], true) . "\n");
    echo "</pre></div>";
 
-   // Append full dump to a log file in plugin root for easier sharing/inspection
-   $logfile = __DIR__ . '/../associatesmanager_debug.log';
-   $entry  = "----\n" . $debug['timestamp'] . "\n";
-   $entry .= "REQUEST_URI: " . $debug['request_uri'] . "\n";
-   $entry .= "GET: " . print_r($debug['get'], true) . "\n";
-   $entry .= "where (raw): " . print_r($debug['raw_where_clauses'], true) . "\n";
-   $entry .= "where_criteria: " . print_r($debug['where_criteria'], true) . "\n";
-   $entry .= "request_args: " . print_r($debug['request_args'], true) . "\n";
-   $entry .= "rows_count: " . $debug['rows_count'] . "\n";
-   $entry .= "rows_sample: " . print_r($debug['rows_sample'], true) . "\n";
-   file_put_contents($logfile, $entry, FILE_APPEND | LOCK_EX);
-
-   echo "<div class='spaced'>Debug log appended to: <strong>" . htmlspecialchars($logfile) . "</strong></div>";
+   // Debug dump displayed in browser; file logging disabled
 }
 
 // Build maps for associates and suppliers to show names/phone/town
@@ -217,13 +224,25 @@ if (count($assocIds)) {
 
 $suppliers = [];
 if (count($supplierIds)) {
+   // Fetch full supplier rows to be robust if nbparttotal column is not present
    $it3 = $DB->request([
-      'SELECT' => ['id','name'],
+      'SELECT' => ['*'],
       'FROM'   => 'glpi_suppliers',
       'WHERE'  => ['id' => array_values($supplierIds)]
    ]);
    foreach ($it3 as $s) {
-      $suppliers[$s['id']] = $s['name'];
+      $name = $s['name'] ?? '';
+      $nb = 0.0;
+      if (isset($s['nbparttotal']) && is_numeric($s['nbparttotal'])) {
+         $nb = (float)$s['nbparttotal'];
+      } else {
+         foreach ($s as $k => $v) {
+            if (stripos($k, 'nbpart') !== false || stripos($k, 'nb_part') !== false) {
+               if (is_numeric($v)) { $nb = (float)$v; break; }
+            }
+         }
+      }
+      $suppliers[$s['id']] = [ 'name' => $name, 'nbparttotal' => $nb ];
    }
 }
 
@@ -232,7 +251,16 @@ if ($sort_by === 'percent' && count($rows)) {
    $part_helper = new PluginAssociatesmanagerPart();
    foreach ($rows as &$r) {
       // Use the row's attribution date for percent calculation
-      $r['percent'] = $part_helper->computeSharePercent($r['associates_id'], $r['supplier_id'], $r['date_attribution']);
+      $supplierDeclaredTotal = 0.0;
+      if (!empty($r['supplier_id']) && isset($suppliers[$r['supplier_id']])) {
+         $supplierDeclaredTotal = $suppliers[$r['supplier_id']]['nbparttotal'];
+      }
+      if ($supplierDeclaredTotal > 0.0) {
+         $nb = isset($r['nbparts']) ? (float)$r['nbparts'] : 0.0;
+         $r['percent'] = ($supplierDeclaredTotal > 0.0) ? ($nb / $supplierDeclaredTotal * 100.0) : 0.0;
+      } else {
+         $r['percent'] = $part_helper->computeSharePercent($r['associates_id'], $r['supplier_id'], $r['date_attribution']);
+      }
    }
    usort($rows, function($a, $b) use ($sort_dir) {
       $pa = $a['percent'] ?? 0.0;
@@ -243,22 +271,25 @@ if ($sort_by === 'percent' && count($rows)) {
    });
 }
 
-echo "<div class='center'>";
+echo "<div class='am-card'>";
 if (count($rows)) {
-   echo "<table class='tab_cadre_fixehov'>";
-   echo "<tr class='noHover'><th colspan='10'>" . PluginAssociatesmanagerPart::getTypeName(count($rows)) . "</th></tr>";
+   echo "<table class='tab_cadre_fixehov am-table'>";
+   echo "<tr class='noHover'><th colspan='11'>" . PluginAssociatesmanagerPart::getTypeName(count($rows)) . "</th></tr>";
    echo "<tr>";
    echo "<th>Associé</th>";
    echo "<th>Type</th>";
-   echo "<th>Téléphone</th>";
-   echo "<th>Ville</th>";
+   echo "<th>Statut</th>";
    echo "<th>Nombre de parts</th>";
    echo "<th>Part (%)</th>";
+   echo "<th>Nb parts total (fournisseur)</th>";
    echo "<th>Date d'attribution</th>";
    echo "<th>Date de fin</th>";
    echo "<th>Fournisseur associé</th>";
    echo "<th>Actions</th>";
    echo "</tr>";
+
+   // tbody for data rows
+   echo "<tbody id='parts-table-body'>";
 
    foreach ($rows as $data) {
       // Resolve associate data from the pre-fetched map using the id stored on the part
@@ -268,6 +299,7 @@ if (count($rows)) {
       }
       $assoc_name = $assoc['name'] ?? '';
       $is_person = (!empty($assoc['is_person'])) ? 'Personne' : 'Société';
+      $is_person_value = (!empty($assoc['is_person'])) ? 1 : 0;
       $phone = $assoc['phonenumber'] ?? '';
       $town  = $assoc['town'] ?? '';
       $label = $data['libelle'] ?? '';
@@ -276,16 +308,35 @@ if (count($rows)) {
       $date_fin = $data['date_fin'] ?? null;
    // Resolve supplier name from the pre-fetched map using the id stored on the part
    $supplier_name = '';
+   $supplierDeclaredTotal = 0.0;
    if (!empty($data['supplier_id']) && isset($suppliers[$data['supplier_id']])) {
-      $supplier_name = $suppliers[$data['supplier_id']];
+      $supplier_name = $suppliers[$data['supplier_id']]['name'];
+      $supplierDeclaredTotal = $suppliers[$data['supplier_id']]['nbparttotal'];
    }
 
    // percent: compute on date_from if provided, else on date_attribution
    // computeSharePercent is an instance method; ensure helper exists
    if (!isset($part_helper)) { $part_helper = new PluginAssociatesmanagerPart(); }
-   $pct = $part_helper->computeSharePercent($data['associates_id'], $data['supplier_id'], $date_attr);
+      // Prefer declared supplier total when available for percentage calculation
+      if ($supplierDeclaredTotal > 0.0) {
+         $pct = ($supplierDeclaredTotal > 0.0) ? ($nbparts / $supplierDeclaredTotal * 100.0) : 0.0;
+      } else {
+         $pct = $part_helper->computeSharePercent($data['associates_id'], $data['supplier_id'], $date_attr);
+      }
 
-      echo "<tr class='tab_bg_1'>";
+      // Gray out rows with an end date (closed parts)
+      $hasEndDate = !empty($date_fin) && $date_fin !== '0000-00-00';
+      
+      // Highlight bénéficiaires effectifs (yellow background)
+      $isBeneficiaire = stripos($label, 'bénéficiaire') !== false || stripos($label, 'beneficiaire') !== false || stripos($label, 'dirigeant') !== false || stripos($label, 'exploitant') !== false;
+      
+      $rowClass = 'tab_bg_1';
+      if ($isBeneficiaire && !$hasEndDate) {
+         $rowClass .= ' associate-highlight';
+      }
+      $rowStyle = $hasEndDate ? "style='background-color:#e0e0e0; opacity:0.7;'" : "";
+      
+      echo "<tr class='$rowClass' $rowStyle data-supplier='" . $data['supplier_id'] . "' data-assoc='" . $data['associates_id'] . "' data-type='" . $is_person_value . "' data-libelle='" . htmlspecialchars($label) . "' data-nb='" . $nbparts . "' data-pct='" . $pct . "'>";
       echo "<td>";
       if ($assoc_name !== '') {
          echo "<a href='" . Plugin::getWebDir('associatesmanager') . "/front/associate.form.php?id=" . $data['associates_id'] . "'>" . htmlspecialchars($assoc_name) . "</a>";
@@ -294,10 +345,18 @@ if (count($rows)) {
       }
       echo "</td>";
       echo "<td>" . htmlspecialchars($is_person) . "</td>";
-      echo "<td>" . htmlspecialchars($phone) . "</td>";
-      echo "<td>" . htmlspecialchars($town) . "</td>";
+      echo "<td>";
+      if ($isBeneficiaire) {
+         echo "<span class='am-badge success'>Bénéficiaire effectif</span>";
+      } else {
+         echo "<span class='am-badge neutral'>Associé</span>";
+      }
+      echo "</td>";
       echo "<td class='left'>" . number_format($nbparts, 4, ',', ' ') . "</td>";
       echo "<td class='left'>" . sprintf('%.1f', $pct) . "%</td>";
+      // Supplier declared total: formatted or em-dash if not set
+      $supplierDisplay = ($supplierDeclaredTotal > 0.0) ? number_format($supplierDeclaredTotal, 2, ',', ' ') : '&mdash;';
+      echo "<td class='left'>" . $supplierDisplay . "</td>";
       echo "<td>" . Html::convDate($date_attr) . "</td>";
       echo "<td>" . Html::convDate($date_fin) . "</td>";
       echo "<td>";
@@ -307,15 +366,116 @@ if (count($rows)) {
          echo "&mdash;";
       }
       echo "</td>";
-      echo "<td><a href='" . Plugin::getWebDir('associatesmanager') . "/front/part.form.php?id=" . $data['id'] . "'><i class='fas fa-edit'></i></a></td>";
+      echo "<td>";
+      // Seule la modification reste accessible; la suppression se gère via le formulaire d'édition
+      if (PluginAssociatesmanagerRight::canUpdate()) {
+         echo "<a href='" . Plugin::getWebDir('associatesmanager') . "/front/part.form.php?id=" . $data['id'] . "' title='Éditer'><i class='fas fa-edit'></i></a>";
+      }
+      echo "</td>";
       echo "</tr>";
    }
+   
+   echo "</tbody>";
+   
    echo "</table>";
 } else {
-   echo "<table class='tab_cadre_fixe'>";
+   echo "<table class='tab_cadre_fixe am-table'>";
    echo "<tr><th>Aucune part trouvée</th></tr>";
    echo "</table>";
 }
-echo "</div>";
+echo "</div>"; // am-card
+
+echo "</div></div>"; // am-stack + am-page
+
+// Client-side filtering + sorting script (same as associate.php)
+echo <<<'JS'
+<script>
+(function($){
+   if (!$) return;
+   
+   function applyFilters(){
+     var fs = $('#filter-supplier').val();
+     var fa = $('#filter-assoc').val();
+     var ft = $('#filter-type').val();
+     var txt = $('#filter-text').val().toLowerCase();
+     $('#parts-table-body tr').each(function(){
+       var $tr = $(this);
+       var ok = true;
+       if (fs && String($tr.data('supplier')) !== fs) ok = false;
+       if (fa && String($tr.data('assoc')) !== fa) ok = false;
+       if (ft !== '' && String($tr.data('type')) !== ft) ok = false;
+       if (txt){
+         var line = ($tr.find('td').map(function(){ return $(this).text(); }).get().join(' ')).toLowerCase();
+         if (line.indexOf(txt) === -1) ok = false;
+       }
+       $tr.toggle(ok);
+     });
+   }
+   
+   $('#filter-supplier,#filter-assoc,#filter-type').on('change', applyFilters);
+   $('#filter-text').on('input', function(){ setTimeout(applyFilters, 100); });
+
+    function sortTableByData(attr, order){
+         var tbody = $('#parts-table-body');
+         if (!tbody.length) return;
+
+         applyFilters();
+
+         var all = tbody.children('tr').get();
+         var visiblePositions = [];
+         for (var i=0;i<all.length;i++){
+            if ($(all[i]).is(':visible')) visiblePositions.push(i);
+         }
+         if (!visiblePositions.length) return;
+
+         var visibleNodes = [];
+         for (var j=0;j<visiblePositions.length;j++){
+            var node = all[visiblePositions[j]];
+            var detached = $(node).detach().get(0);
+            visibleNodes.push(detached);
+         }
+
+         visibleNodes.sort(function(a,b){
+             var va = parseFloat($(a).data(attr)) || 0;
+             var vb = parseFloat($(b).data(attr)) || 0;
+             return (order === 'asc') ? va - vb : vb - va;
+         });
+
+         var newOrder = [];
+         var si = 0;
+         for (var k=0;k<all.length;k++){
+            if (visiblePositions.indexOf(k) !== -1){
+               newOrder.push(visibleNodes[si++]);
+            } else {
+               newOrder.push(all[k]);
+            }
+         }
+
+         tbody.empty();
+         for (var m=0;m<newOrder.length;m++){
+            var nd = newOrder[m];
+            tbody.append(nd);
+            if (visiblePositions.indexOf(m) !== -1){
+               $(nd).show();
+            } else {
+               $(nd).hide();
+            }
+         }
+    }
+
+   $('#sort-nb').on('click', function(){
+     var $b = $(this); var order = $b.data('order') === 'asc' ? 'desc' : 'asc';
+     $b.data('order', order).text('Tri parts ' + (order==='asc'?'↑':'↓'));
+     sortTableByData('nb', order);
+   });
+   $('#sort-pct').on('click', function(){
+     var $b = $(this); var order = $b.data('order') === 'asc' ? 'desc' : 'asc';
+     $b.data('order', order).text('Tri % ' + (order==='asc'?'↑':'↓'));
+     sortTableByData('pct', order);
+   });
+
+})(window.jQuery);
+</script>
+JS;
 
 Html::footer();

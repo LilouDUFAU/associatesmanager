@@ -13,6 +13,12 @@ ALTER TABLE `glpi_plugin_associatesmanager_parts`
   ADD COLUMN IF NOT EXISTS `date_attribution` DATE DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS `date_fin` DATE DEFAULT NULL;
 
+-- Allow attaching an initial total number of parts to a Supplier.
+-- If this column is > 0 it will be used as the denominator when computing
+-- percent shares; when 0 the plugin falls back to summing active parts.
+ALTER TABLE `glpi_suppliers`
+  ADD COLUMN IF NOT EXISTS `nbparttotal` DECIMAL(15,4) NOT NULL DEFAULT '0.0000';
+
 -- Add indexes if not present (MySQL 8+ supports IF NOT EXISTS)
 CREATE INDEX IF NOT EXISTS `idx_associates_id` ON `glpi_plugin_associatesmanager_parts` (`associates_id`);
 CREATE INDEX IF NOT EXISTS `idx_supplier_id` ON `glpi_plugin_associatesmanager_parts` (`supplier_id`);

@@ -13,18 +13,27 @@ Html::header(
    'associate'
 );
 
+// Inline stylesheet to avoid web-path issues (plugin webdir may vary)
+$amCss = __DIR__ . '/../css/associates.css';
+if (is_readable($amCss)) {
+   echo '<style>' . file_get_contents($amCss) . '</style>';
+}
+
+// Shell page container
+echo "<div class='am-page'><div class='am-stack'>";
+
 // Add "New" button in header if user has CREATE right
 if (Session::haveRight('plugin_associatesmanager', CREATE)) {
-   echo "<div class='spaced'>";
-   echo "<a href='" . PluginAssociatesmanagerAssociate::getFormURL() . "' class='btn btn-primary' style='margin-right:8px;'>";
-   echo "<i class='fas fa-plus'></i> ";
+   echo "<div class='am-toolbar'>";
+   echo "<a href='" . PluginAssociatesmanagerAssociate::getFormURL() . "' class='btn btn-primary'>";
+   echo "<i class='fas fa-plus'></i>";
    echo "<span>Nouvel associé</span>";
    echo "</a>";
    // Also add a button to view the full parts history
    if (Session::haveRight('plugin_associatesmanager', READ)) {
       // Link to the Parts page which now exposes the full history view
       echo "<a href='" . Plugin::getWebDir('associatesmanager') . "/front/part.php' class='btn btn-secondary'>";
-      echo "<i class='fas fa-history'></i> ";
+      echo "<i class='fas fa-history'></i>";
       echo "<span>Voir l'historique des parts</span>";
       echo "</a>";
    }
@@ -34,11 +43,15 @@ if (Session::haveRight('plugin_associatesmanager', CREATE)) {
 // Custom table: one row per (supplier, associate) duo showing parts and percentage
 global $DB;
 
-// Récupère toutes les parts actives (date_fin IS NULL)
+// Récupère toutes les parts actives (date_fin IS NULL) en joignant la table fournisseurs
 $it = $DB->request([
-   'FROM'  => 'glpi_plugin_associatesmanager_parts',
-   'WHERE' => ['date_fin' => null]
+   'SELECT' => ['p.*','s.name AS supplier_name','s.nbparttotal AS supplier_nbparttotal'],
+   'FROM'   => 'glpi_plugin_associatesmanager_parts AS p',
+   'LEFT JOIN' => [ 'glpi_suppliers AS s' => ['s.id' => 'p.supplier_id'] ],
+   'WHERE'  => ['p.date_fin' => null]
 ]);
+
+$pairLibelles = []; // key supplier|associate => libelle
 
 $pairs = []; // key supplier|associate => nbparts sum
 $supplierTotals = []; // supplier_id => total nbparts
@@ -46,15 +59,26 @@ $assocIds = [];
 $supplierIds = [];
 $pairDates = []; // key supplier|associate => ['date_attribution'=>..., 'date_fin'=>...]
 
-foreach ($it as $r) {
+   foreach ($it as $r) {
    $sid = $r['supplier_id'];
    $aid = $r['associates_id'];
    $nb  = isset($r['nbparts']) ? (float)$r['nbparts'] : 0.0;
+   // If the join returned a supplier total, prefer it for later use
+   if (isset($r['supplier_nbparttotal']) && is_numeric($r['supplier_nbparttotal'])) {
+      // stash supplier total into suppliers map so we don't need a separate query later
+      $supplierRow = $r['supplier_name'] ?? null;
+      $suppliers[$sid] = [ 'name' => $supplierRow ?? ('ID ' . $sid), 'nbparttotal' => (float)$r['supplier_nbparttotal'] ];
+   }
    $key = $sid . '|' . $aid;
    if (!isset($pairs[$key])) {
       $pairs[$key] = 0.0;
    }
    $pairs[$key] += $nb;
+   
+   // Store libelle for highlighting
+   if (!isset($pairLibelles[$key])) {
+      $pairLibelles[$key] = $r['libelle'] ?? 'Associé';
+   }
 
    // Track the attribution/fin dates for the duo. For safety keep the most recent
    // date_attribution if multiple rows exist (shouldn't for active rows but be robust).
@@ -88,52 +112,72 @@ if (count($assocIds)) {
    }
 }
 
-// Fetch supplier names
+// Fetch supplier names and declared total parts (nbparttotal)
 $suppliers = [];
 if (count($supplierIds)) {
+   // Fetch full supplier rows to be robust if nbparttotal column is not present
    $it3 = $DB->request([
-      'SELECT' => ['id','name'],
+      'SELECT' => ['*'],
       'FROM'   => 'glpi_suppliers',
       'WHERE'  => ['id' => array_values($supplierIds)]
    ]);
    foreach ($it3 as $s) {
-      $suppliers[$s['id']] = $s['name'];
+      $name = $s['name'] ?? '';
+      // Robust detection: try common column names and fall back to scanning row for numeric field containing 'nbpart'
+      $nb = 0.0;
+      if (isset($s['nbparttotal']) && is_numeric($s['nbparttotal'])) {
+         $nb = (float)$s['nbparttotal'];
+      } else {
+         foreach ($s as $k => $v) {
+            if (stripos($k, 'nbpart') !== false || stripos($k, 'nb_part') !== false) {
+               if (is_numeric($v)) { $nb = (float)$v; break; }
+            }
+         }
+      }
+      $suppliers[$s['id']] = [ 'name' => $name, 'nbparttotal' => $nb ];
    }
 }
 
-echo "<div class='center'>";
 if (count($pairs)) {
+   echo "<div class='am-card'>";
    // Filters toolbar
-   echo "<div class='filters' style='margin-bottom:10px;'>";
-   echo "<label>Fournisseur: <select id='filter-supplier'><option value=''>Tous</option>";
-   foreach ($suppliers as $sid => $sname) {
-      echo "<option value='" . $sid . "'>" . htmlspecialchars($sname) . "</option>";
+   echo "<div class='am-filters'>";
+   echo "<label>Fournisseur";
+   echo "<select id='filter-supplier'><option value=''>Tous</option>";
+   foreach ($suppliers as $sid => $sentry) {
+      $displayName = is_array($sentry) ? ($sentry['name'] ?? 'ID ' . $sid) : $sentry;
+      echo "<option value='" . $sid . "'>" . htmlspecialchars($displayName) . "</option>";
    }
-   echo "</select></label> ";
+   echo "</select></label>";
 
-   echo "<label>Associé: <select id='filter-assoc'><option value=''>Tous</option>";
+   echo "<label>Associé";
+   echo "<select id='filter-assoc'><option value=''>Tous</option>";
    foreach ($associates as $aid => $a) {
       echo "<option value='" . $aid . "'>" . htmlspecialchars($a['name']) . "</option>";
    }
-   echo "</select></label> ";
+   echo "</select></label>";
 
-   echo "<label>Type: <select id='filter-type'><option value=''>Tous</option><option value='1'>Personne</option><option value='0'>Société</option></select></label> ";
+   echo "<label>Type";
+   echo "<select id='filter-type'><option value=''>Tous</option><option value='1'>Personne</option><option value='0'>Société</option></select>";
+   echo "</label>";
 
-   echo "<label>Recherche: <input type='search' id='filter-text' placeholder='Nom, email, ville...'></label> ";
+   echo "<label>Recherche";
+   echo "<input type='search' id='filter-text' placeholder='Nom, email, ville...'>";
+   echo "</label>";
 
-   echo "<button id='sort-nb' class='btn btn-sm btn-light' data-order='desc'>Tri parts ↓</button> ";
-   echo "<button id='sort-pct' class='btn btn-sm btn-light' data-order='desc'>Tri % ↓</button> ";
+   echo "<button id='sort-nb' class='btn btn-outline-secondary btn-sm' data-order='desc'>Tri parts ↓</button>";
+   echo "<button id='sort-pct' class='btn btn-outline-secondary btn-sm' data-order='desc'>Tri % ↓</button>";
    echo "</div>";
-   echo "<table class='tab_cadre_fixehov'>";
-   echo "<tr class='noHover'><th colspan='11'>Associés - parts par fournisseur</th></tr>";
+
+   echo "<table class='tab_cadre_fixehov am-table'>";
+   echo "<tr class='noHover'><th colspan='12'>Associés - parts par fournisseur</th></tr>";
    echo "<tr>";
    echo "<th>Nom</th>";
    echo "<th>Type</th>";
-   echo "<th>Email</th>";
-   echo "<th>Téléphone</th>";
-   echo "<th>Ville</th>";
+   echo "<th>Statut</th>";
    echo "<th>Nombre de parts</th>";
    echo "<th>Part (%)</th>";
+   echo "<th>Nb parts total (fournisseur)</th>";
       echo "<th>Date d'attribution</th>";
       echo "<th>Date de fin</th>";
    echo "<th>Fournisseur associé</th>";
@@ -145,28 +189,41 @@ if (count($pairs)) {
 
    foreach ($pairs as $key => $nb) {
       list($sid, $aid) = explode('|', $key);
-      $assoc = $associates[$aid] ?? null;
-      $sname = $suppliers[$sid] ?? ('ID ' . $sid);
-      $supplierTotal = $supplierTotals[$sid] ?? 0.0;
-      $pct = ($supplierTotal > 0) ? ($nb / $supplierTotal * 100.0) : 0.0;
+   $assoc = $associates[$aid] ?? null;
+   $sentry = $suppliers[$sid] ?? null;
+   $sname = $sentry['name'] ?? ('ID ' . $sid);
+   $supplierDeclaredTotal = isset($sentry['nbparttotal']) ? (float)$sentry['nbparttotal'] : 0.0;
+   // use declared total as denominator if provided, otherwise fall back to computed supplierTotals
+   $denom = ($supplierDeclaredTotal > 0.0) ? $supplierDeclaredTotal : ($supplierTotals[$sid] ?? 0.0);
+   $pct = ($denom > 0) ? ($nb / $denom * 100.0) : 0.0;
 
    // add data attributes for client-side filtering/sorting
    $da = $pairDates[$key]['date_attribution'] ?? '';
    $df = $pairDates[$key]['date_fin'] ?? '';
-   echo "<tr class='tab_bg_1' data-supplier='" . $sid . "' data-assoc='" . $aid . "' data-type='" . ($assoc ? $assoc['is_person'] : '') . "' data-nb='" . $nb . "' data-pct='" . $pct . "' data-date_attribution='" . ($da ?: '') . "' data-date_fin='" . ($df ?: '') . "'>";
+   $libelle = $pairLibelles[$key] ?? 'Associé';
+   $isBeneficiaire = stripos($libelle, 'bénéficiaire') !== false || stripos($libelle, 'beneficiaire') !== false || stripos($libelle, 'dirigeant') !== false || stripos($libelle, 'exploitant') !== false;
+   $rowClass = $isBeneficiaire ? 'tab_bg_1 associate-highlight' : 'tab_bg_1';
+   echo "<tr class='" . $rowClass . "' data-supplier='" . $sid . "' data-assoc='" . $aid . "' data-type='" . ($assoc ? $assoc['is_person'] : '') . "' data-nb='" . $nb . "' data-pct='" . $pct . "' data-supplier-total='" . $supplierDeclaredTotal . "' data-date_attribution='" . ($da ?: '') . "' data-date_fin='" . ($df ?: '') . "'>";
       if ($assoc) {
          echo "<td><a href='" . Plugin::getWebDir('associatesmanager') . "/front/associate.form.php?id=" . $assoc['id'] . "'>" . htmlspecialchars($assoc['name']) . "</a></td>";
             echo "<td>" . ($assoc['is_person'] ? 'Personne' : 'Société') . "</td>";
-            echo "<td>" . htmlspecialchars($assoc['email']) . "</td>";
-            echo "<td>" . htmlspecialchars($assoc['phonenumber']) . "</td>";
-            echo "<td>" . htmlspecialchars($assoc['town']) . "</td>";
+            echo "<td>";
+            if ($isBeneficiaire) {
+               echo "<span class='am-badge success'>Bénéficiaire effectif</span>";
+            } else {
+               echo "<span class='am-badge neutral'>Associé</span>";
+            }
+            echo "</td>";
          } else {
             echo "<td>Assoc ID " . $aid . "</td>";
-            echo "<td>-</td><td>-</td><td>-</td><td>-</td>";
+            echo "<td>-</td>";
          }
 
          echo "<td class='left'>" . number_format($nb, 2, ',', ' ') . "</td>";
             echo "<td class='left'>" . sprintf('%.1f', $pct) . "%</td>";
+            // Supplier declared total: show formatted number when set, otherwise an em-dash for clarity
+            $supplierDisplay = ($supplierDeclaredTotal > 0.0) ? number_format($supplierDeclaredTotal, 2, ',', ' ') : '&mdash;';
+            echo "<td class='left'>" . $supplierDisplay . "</td>";
             echo "<td>" . Html::convDate($da) . "</td>";
             echo "<td>" . Html::convDate($df) . "</td>";
          // Link to GLPI supplier page (core Supplier) instead of plugin supplier form
@@ -188,12 +245,15 @@ if (count($pairs)) {
       echo "</tbody>";
 
       echo "</table>";
+   echo "</div>"; // am-card
 } else {
-   echo "<table class='tab_cadre_fixe'>";
+   echo "<div class='am-card'>";
+   echo "<table class='tab_cadre_fixe am-table'>";
       echo "<tr><th>Aucun couple fournisseur/associé avec parts actives trouvé</th></tr>";
    echo "</table>";
+   echo "</div>";
 }
-echo "</div>";
+echo "</div></div>"; // am-stack + am-page
 
 // Client-side filtering + sorting script
 echo <<<'JS'

@@ -27,11 +27,47 @@ class PluginAssociatesmanagerConfig extends CommonDBTM {
          return false;
       }
 
+      $config = Config::getConfigurationValues('plugin:associatesmanager');
+      $rne_api_email = $config['rne_api_email'] ?? '';
+      $rne_api_password = $config['rne_api_password'] ?? '';
+
       echo "<div class='center'>";
       echo "<form method='post' action='" . Plugin::getWebDir('associatesmanager') . "/front/config.form.php'>";
 
       echo "<table class='tab_cadre_fixe'>";
    echo "<tr><th colspan='2'>Configuration du plugin Associates Manager</th></tr>";
+
+      // Section API RNE
+      echo "<tr class='tab_bg_1'>";
+      echo "<td colspan='2'>";
+   echo "<h3>Configuration API RNE INPI</h3>";
+   echo "<p>Configurez vos identifiants pour accéder à l'API du Registre National des Entreprises (INPI)</p>";
+      echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1'>";
+      echo "<td><label for='rne_api_email'>Email API RNE :</label></td>";
+      echo "<td>";
+      echo "<input type='email' name='rne_api_email' id='rne_api_email' value='" . htmlspecialchars($rne_api_email) . "' size='50' />";
+      echo "</td>";
+      echo "</tr>";
+
+      echo "<tr class='tab_bg_1'>";
+      echo "<td><label for='rne_api_password'>Mot de passe API RNE :</label></td>";
+      echo "<td>";
+      echo "<input type='password' name='rne_api_password' id='rne_api_password' value='" . htmlspecialchars($rne_api_password) . "' size='50' />";
+      echo "</td>";
+      echo "</tr>";
+
+      if (Session::haveRight('config', UPDATE)) {
+         echo "<tr class='tab_bg_1'>";
+         echo "<td colspan='2' class='center'>";
+         echo "<input type='submit' name='update_rne_config' value='Enregistrer la configuration API' class='btn btn-primary' />";
+         echo " ";
+         echo "<input type='submit' name='test_rne_connection' value='Tester la connexion' class='btn btn-secondary' />";
+         echo "</td>";
+         echo "</tr>";
+      }
 
       echo "<tr class='tab_bg_1'>";
       echo "<td colspan='2'>";
@@ -52,6 +88,16 @@ class PluginAssociatesmanagerConfig extends CommonDBTM {
       echo "</div>";
 
    return true;
+   }
+
+   /**
+    * Enregistre la configuration API RNE
+    */
+   public static function saveRneConfig($email, $password) {
+      return Config::setConfigurationValues('plugin:associatesmanager', [
+         'rne_api_email' => $email,
+         'rne_api_password' => $password
+      ]);
    }
 
    function showProfileRights() {

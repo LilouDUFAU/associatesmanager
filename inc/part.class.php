@@ -91,6 +91,48 @@ class PluginAssociatesmanagerPart extends CommonDBTM {
          return false;
       }
 
+      // Valider le nombre de parts
+      $error = '';
+      if (!PluginAssociatesmanagerValidation::validateNbParts($input['nbparts'], $error)) {
+         Session::addMessageAfterRedirect($error, false, ERROR);
+         return false;
+      }
+
+      // Valider les dates
+      // Si une date de fin est fournie sans date d'attribution, utilise la date de fin comme date d'attribution par défaut
+      if (empty($input['date_attribution']) && !empty($input['date_fin'])) {
+         $input['date_attribution'] = $input['date_fin'];
+      }
+
+      if (!empty($input['date_attribution'])) {
+         if (!PluginAssociatesmanagerValidation::validateDate($input['date_attribution'], $error)) {
+            Session::addMessageAfterRedirect($error, false, ERROR);
+            return false;
+         }
+      }
+
+      if (!empty($input['date_fin'])) {
+         if (!PluginAssociatesmanagerValidation::validateDate($input['date_fin'], $error)) {
+            Session::addMessageAfterRedirect($error, false, ERROR);
+            return false;
+         }
+      }
+
+      // Valider la cohérence des dates
+      $date_attr = $input['date_attribution'] ?? '';
+      $date_fin = $input['date_fin'] ?? '';
+      if (!PluginAssociatesmanagerValidation::validateDateCoherence($date_attr, $date_fin, $error)) {
+         Session::addMessageAfterRedirect($error, false, ERROR);
+         return false;
+      }
+
+      // Vérifier les doublons
+      $dup_error = '';
+      if (!PluginAssociatesmanagerValidation::checkDuplicate($input['supplier_id'], $input['associates_id'], null, $dup_error)) {
+         Session::addMessageAfterRedirect($dup_error, false, WARNING);
+         // Ne pas retourner false - permettre la création d'un doublonmais avec avertissement
+      }
+
       // Default attribution date to today if not provided
       if (empty($input['date_attribution'])) {
          $input['date_attribution'] = date('Y-m-d');
@@ -100,6 +142,44 @@ class PluginAssociatesmanagerPart extends CommonDBTM {
    }
 
    function prepareInputForUpdate($input) {
+      // Valider le nombre de parts s'il est fourni
+      if (isset($input['nbparts']) && $input['nbparts'] !== '') {
+         $error = '';
+         if (!PluginAssociatesmanagerValidation::validateNbParts($input['nbparts'], $error)) {
+            Session::addMessageAfterRedirect($error, false, ERROR);
+            return false;
+         }
+      }
+
+      // Valider les dates
+      if (empty($input['date_attribution']) && !empty($input['date_fin'])) {
+         $input['date_attribution'] = $input['date_fin'];
+      }
+
+      if (!empty($input['date_attribution'])) {
+         $error = '';
+         if (!PluginAssociatesmanagerValidation::validateDate($input['date_attribution'], $error)) {
+            Session::addMessageAfterRedirect($error, false, ERROR);
+            return false;
+         }
+      }
+
+      if (!empty($input['date_fin'])) {
+         $error = '';
+         if (!PluginAssociatesmanagerValidation::validateDate($input['date_fin'], $error)) {
+            Session::addMessageAfterRedirect($error, false, ERROR);
+            return false;
+         }
+      }
+
+      // Valider la cohérence des dates
+      $date_attr = $input['date_attribution'] ?? '';
+      $date_fin = $input['date_fin'] ?? '';
+      if (!PluginAssociatesmanagerValidation::validateDateCoherence($date_attr, $date_fin, $error)) {
+         Session::addMessageAfterRedirect($error, false, ERROR);
+         return false;
+      }
+
       return $input;
    }
 
@@ -224,16 +304,14 @@ class PluginAssociatesmanagerPart extends CommonDBTM {
       // Begin transaction: we'll move existing active part to history, then insert new part
       $DB->beginTransaction();
 
-   // Debug: record invocation to plugin debug log to help diagnose missing updates
-   $logfile = __DIR__ . '/../associatesmanager_debug.log';
-   $entry = "addPart called: associates_id={$data['associates_id']}, supplier_id={$data['supplier_id']}, date_attribution={$data['date_attribution']}\n";
-   file_put_contents($logfile, $entry, FILE_APPEND | LOCK_EX);
+   // Debug logging removed
 
       // Find the current active part for this associate+supplier.
       // Some rows may have date_fin = NULL, empty string or '0000-00-00' depending on imports/SQL mode.
+      // Also select nbparts because we'll use it when validating available shares.
       $existing = null;
       $itExisting = $DB->request([
-         'SELECT' => ['id','date_attribution','date_fin'],
+         'SELECT' => ['id','nbparts','date_attribution','date_fin'],
          'FROM'   => 'glpi_plugin_associatesmanager_parts',
          'WHERE'  => [
             'associates_id' => $data['associates_id'],
@@ -249,8 +327,9 @@ class PluginAssociatesmanagerPart extends CommonDBTM {
          }
       }
 
-      // If an active existing part is found, close it by setting date_fin = new date_attribution
-      if (!empty($existing)) {
+   // If an active existing part is found, we'll close it by setting date_fin = new date_attribution
+   // but validate availability first (we consider that the existing part will be removed at that date).
+   if (!empty($existing)) {
          // Validate dates: new attribution must be >= existing attribution
          if (!empty($existing['date_attribution']) && strtotime($data['date_attribution']) < strtotime($existing['date_attribution'])) {
             Session::addMessageAfterRedirect('La date d\'attribution doit être postérieure ou égale à la date d\'attribution existante', false, ERROR);
@@ -260,6 +339,57 @@ class PluginAssociatesmanagerPart extends CommonDBTM {
 
          // Update existing row. Use $this->update (CommonDBTM) which will handle history logging; if it fails, rollback.
          if (!$this->update(['id' => $existing['id'], 'date_fin' => $data['date_attribution'], 'date_mod' => date('Y-m-d H:i:s')])) {
+            $DB->rollback();
+            return false;
+         }
+      }
+
+      // --- Validate available parts against supplier.nbparttotal (if set) ---
+      // Fetch supplier declared total
+      $supplierTotal = 0.0;
+      // Fetch full supplier row to be robust if nbparttotal doesn't exist
+      $itSup = $DB->request([
+         'SELECT' => ['*'],
+         'FROM'   => 'glpi_suppliers',
+         'WHERE'  => ['id' => $data['supplier_id']]
+      ]);
+      $supRow = $itSup->next();
+      if ($supRow && isset($supRow['nbparttotal'])) {
+         $supplierTotal = (float)$supRow['nbparttotal'];
+      }
+
+      // If supplierTotal > 0, ensure we don't exceed it on the date of attribution
+      if ($supplierTotal > 0.0) {
+         $date_check = $data['date_attribution'];
+         // Sum active parts for that supplier on that date
+         $assigned = 0.0;
+         $itParts = $DB->request([
+            'SELECT' => ['nbparts','date_attribution','date_fin'],
+            'FROM'   => 'glpi_plugin_associatesmanager_parts',
+            'WHERE'  => ['supplier_id' => $data['supplier_id']]
+         ]);
+         foreach ($itParts as $pr) {
+            $da = $pr['date_attribution'] ?? null;
+            $df = $pr['date_fin'] ?? null;
+            if (empty($da)) {
+               continue;
+            }
+            // active at date: date_attribution <= date_check and (date_fin is null/empty/'0000-00-00' or date_fin > date_check)
+            if (strtotime($da) <= strtotime($date_check) && (empty($df) || $df === '0000-00-00' || strtotime($df) > strtotime($date_check))) {
+               $assigned += isset($pr['nbparts']) ? (float)$pr['nbparts'] : 0.0;
+            }
+         }
+
+         // If there is an existing active part for this associate, it will be closed at the same date; subtract its nbparts from the already assigned total
+         if (!empty($existing) && isset($existing['nbparts'])) {
+            $assigned -= (float)$existing['nbparts'];
+            if ($assigned < 0) { $assigned = 0.0; }
+         }
+
+         $available = $supplierTotal - $assigned;
+         if ($available < 0) { $available = 0.0; }
+         if ((float)$data['nbparts'] > $available) {
+            Session::addMessageAfterRedirect("Le nombre de parts demandé ({$data['nbparts']}) dépasse le nombre disponible ({$available}) pour le fournisseur.", false, ERROR);
             $DB->rollback();
             return false;
          }
@@ -386,9 +516,10 @@ class PluginAssociatesmanagerPart extends CommonDBTM {
          $date = date('Y-m-d');
       }
 
-      // Sum parts for the associate on that supplier
+      // Sum parts for the associate on that supplier that are active on $date
       $a = 0.0;
       $it = $DB->request([
+         'SELECT' => ['nbparts','date_attribution','date_fin'],
          'FROM'  => 'glpi_plugin_associatesmanager_parts',
          'WHERE' => [
             'associates_id' => $associate_id,
@@ -396,17 +527,53 @@ class PluginAssociatesmanagerPart extends CommonDBTM {
          ]
       ]);
       foreach ($it as $r) {
-         $a += isset($r['nbparts']) ? (float)$r['nbparts'] : 0.0;
+         $da = $r['date_attribution'] ?? null;
+         $df = $r['date_fin'] ?? null;
+         if (empty($da)) { continue; }
+         if (strtotime($da) <= strtotime($date) && (empty($df) || $df === '0000-00-00' || strtotime($df) > strtotime($date))) {
+            $a += isset($r['nbparts']) ? (float)$r['nbparts'] : 0.0;
+         }
       }
 
-      // Sum total parts for that supplier
-      $t = 0.0;
-      $it2 = $DB->request([
-         'FROM'  => 'glpi_plugin_associatesmanager_parts',
-         'WHERE' => ['supplier_id' => $supplier_id]
+      // Check if supplier has declared a fixed total
+      $supplierTotal = 0.0;
+      // Fetch full supplier row to be robust if nbparttotal doesn't exist
+      $itSup = $DB->request([
+         'SELECT' => ['*'],
+         'FROM'   => 'glpi_suppliers',
+         'WHERE'  => ['id' => $supplier_id]
       ]);
-      foreach ($it2 as $r) {
-         $t += isset($r['nbparts']) ? (float)$r['nbparts'] : 0.0;
+      $supRow = $itSup->next();
+      if ($supRow) {
+         if (isset($supRow['nbparttotal']) && is_numeric($supRow['nbparttotal'])) {
+            $supplierTotal = (float)$supRow['nbparttotal'];
+         } else {
+            foreach ($supRow as $k => $v) {
+               if ((stripos($k, 'nbpart') !== false || stripos($k, 'nb_part') !== false) && is_numeric($v)) {
+                  $supplierTotal = (float)$v; break;
+               }
+            }
+         }
+      }
+
+      // If supplierTotal > 0, use it as denominator, otherwise sum active parts for the supplier on that date
+      $t = 0.0;
+      if ($supplierTotal > 0.0) {
+         $t = $supplierTotal;
+      } else {
+         $it2 = $DB->request([
+            'SELECT' => ['nbparts','date_attribution','date_fin'],
+            'FROM'  => 'glpi_plugin_associatesmanager_parts',
+            'WHERE' => ['supplier_id' => $supplier_id]
+         ]);
+         foreach ($it2 as $r) {
+            $da = $r['date_attribution'] ?? null;
+            $df = $r['date_fin'] ?? null;
+            if (empty($da)) { continue; }
+            if (strtotime($da) <= strtotime($date) && (empty($df) || $df === '0000-00-00' || strtotime($df) > strtotime($date))) {
+               $t += isset($r['nbparts']) ? (float)$r['nbparts'] : 0.0;
+            }
+         }
       }
 
       if ($t == 0.0) {

@@ -33,6 +33,15 @@ class PluginAssociatesmanagerMenu extends CommonGLPI {
          'icon'  => 'fas fa-percentage'
       ];
 
+      // Ajouter l'option de synchronisation RNE si l'utilisateur a les droits de modification
+      if (Session::haveRight('plugin_associatesmanager', UPDATE)) {
+         $menu['options']['rnesync'] = [
+            'title' => 'Synchronisation API RNE',
+            'page'  => Plugin::getWebDir('associatesmanager') . '/front/rnesync.php',
+            'icon'  => 'fas fa-cloud-download-alt'
+         ];
+      }
+
       // The dedicated partshistory page/class was removed; history is available
       // from the Parts list and associate views.
 
