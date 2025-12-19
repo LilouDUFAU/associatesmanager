@@ -1,83 +1,96 @@
-# Associates Manager - Guide d'utilisation
+---
+# Associates Manager – User Guide (EN)
 
-## Vue d'ensemble
+## 👀 Overview
 
-Le plugin **Associates Manager** permet de gérer les associés et leurs parts dans GLPI.
+The **Associates Manager** plugin allows you to easily manage associates and their shares in GLPI, with all add, edit, delete, and history operations.
 
-## Fonctionnalités
+## ✨ Main Features
 
-### 1. Gestion des Associés
+- 👤 Manage associates (individuals or companies) linked to a supplier
+- 💼 Manage shares and share history
+- 🔗 Automatic link with GLPI contacts for individuals
+- 📝 Full CRUD: **Add**, **Edit**, **Delete** associates, shares, history
+- ✅ Visual confirmation after each action
+- 🔒 Fine-grained rights by GLPI profile (read, create, update, delete, purge)
 
-Accédez à la page des associés via : **Administration → Associates Manager → Associates**
+## 🌐 RNE Integration (French National Business Register)
 
-#### Créer un nouvel associé
-1. Cliquez sur le bouton **"Nouveau"** (avec l'icône +) en haut de la page
-2. Remplissez le formulaire :
-   - **Nom** * (obligatoire)
-   - **Type** * : Personne ou Société (obligatoire)
-   - **Fournisseur** * (obligatoire)
-   - **Contact** : Lien vers un contact existant
-   - **Email**
-   - **Téléphone**
-   - **Adresse complète** : Adresse, Code postal, Ville, État, Pays
+The Associates Manager plugin can connect to the RNE (INPI) API to automatically synchronize a supplier’s beneficial owners using its SIREN number.
 
-3. Cliquez sur **"Ajouter"**
+### 🔗 How it works with RNE
 
-> **Note** : Si vous créez un associé de type "Personne" sans contact lié, un contact sera automatiquement créé et associé au fournisseur.
+- A **Synchronize with RNE** button appears on the supplier page (if SIREN is set).
+- When synchronizing, the plugin queries the RNE API and suggests adding or updating associates according to the declared beneficial owners.
+- RNE API credentials must be set in **Administration → Associates Manager → Configuration**.
+- A synchronization history and any errors are shown to the user.
 
-#### Visualiser les associés d'un fournisseur
-1. Allez sur la fiche d'un fournisseur
-2. Cliquez sur l'onglet **"Associates"**
-3. Vous verrez la liste de tous les associés liés à ce fournisseur
+### 🚫 How it works without RNE
 
-### 2. Gestion des Parts
+- If no RNE API credentials are set, or if SIREN is missing, automatic synchronization is not available.
+- All CRUD operations (add, edit, delete) remain possible manually.
+- The plugin then works in manual mode, without automatic retrieval of beneficial owners.
 
-Accédez à la page des parts via : **Administration → Associates Manager → Parts**
+> ℹ️ RNE integration is optional: the plugin remains fully functional even without RNE API connection.
 
-#### Créer une nouvelle part
-1. Cliquez sur le bouton **"Nouveau"** en haut de la page
-2. Remplissez :
-   - **Libellé** * (obligatoire) : Nom de la part
-   - **Valeur** * (obligatoire) : Valeur numérique décimale
+---
 
-3. Cliquez sur **"Ajouter"**
+## 🛠️ CRUD Usage Examples
 
-### 3. Historique des Parts
+### ➕ Add an associate
+1. Click **"New"** (➕ icon) at the top of the "Associates" page
+2. Fill in the form:
+   - **Name** (required)
+   - **Type**: Individual or Company (required)
+   - **Supplier** (required)
+   - **Contact** (optional)
+   - **Email**, **Phone**, **Address**
+3. Click **"Add"**
 
-Accédez à l'historique via : **Administration → Associates Manager → Parts History**
+> ℹ️ If you create an associate of type "Individual" without a linked contact, a contact will be automatically created and linked to the supplier.
 
-#### Créer un nouvel historique
-1. Cliquez sur le bouton **"Nouveau"** en haut de la page
-2. Remplissez :
-   - **Associé** * (obligatoire)
-   - **Part** * (obligatoire)
-   - **Nombre de parts** * (obligatoire)
-   - **Date d'attribution**
-   - **Date de fin**
+### ✏️ Edit an associate
+1. Click the **"Edit"** button (✏️ icon) on the associate’s record
+2. Edit the desired fields
+3. Click **"Save"**
 
-3. Cliquez sur **"Ajouter"**
+### 🗑️ Delete an associate
+1. Click the **"Delete"** button (🗑️ icon) on the associate’s record
+2. Confirm deletion
 
-#### Visualiser l'historique d'un associé
-1. Ouvrez la fiche d'un associé
-2. Cliquez sur l'onglet **"Parts History"**
-3. Vous verrez tout l'historique des parts attribuées à cet associé
+### 🔄 Shares history
+1. Go to **Administration → Associates Manager → Parts History**
+2. Click **"New"** to add a share assignment
+3. Fill in:
+   - **Associate** (required)
+   - **Share** (required)
+   - **Number of shares** (required)
+   - **Assignment date** (optional)
+   - **End date** (optional)
+4. Click **"Add"**
 
-## Permissions
+To view an associate’s history:
+1. Open the associate’s record
+2. Click the **"Parts History"** tab
+3. You will see the full history of shares assigned to that associate
 
-Le plugin utilise un système de droits dédié : `plugin_associatesmanager`
+## 🔒 Rights management
 
-Les droits disponibles :
-- **Lecture (READ)** : Voir les données
-- **Création (CREATE)** : Créer de nouveaux éléments
-- **Mise à jour (UPDATE)** : Modifier des éléments existants
-- **Suppression (DELETE)** : Supprimer des éléments
-- **Purge (PURGE)** : Supprimer définitivement
+The plugin uses a dedicated rights system: `plugin_associatesmanager`
 
-> Les boutons "Nouveau" n'apparaissent que si vous avez le droit **CREATE**.
+| Right      | Description                        |
+|------------|------------------------------------|
+| **READ**   | View data                          |
+| **CREATE** | Add new items                      |
+| **UPDATE** | Edit existing items                |
+| **DELETE** | Delete items                       |
+| **PURGE**  | Permanent deletion                 |
 
-## Navigation
+> The "New" or "Delete" buttons only appear if you have the corresponding right.
 
-Le plugin ajoute un nouveau menu dans **Administration** :
+## 🧭 Navigation
+
+The plugin adds a menu in **Administration**:
 
 ```
 Administration
@@ -87,12 +100,156 @@ Administration
        └── Parts History
 ```
 
-## Support
+## 🆘 Support
 
-Pour signaler un bug ou demander une fonctionnalité, veuillez contacter l'administrateur système.
+To report a bug or request a feature, contact your system administrator or open an issue on the GitHub repository.
+
+---
+
+**Version**: 1.0.4  
+**Author**: Lilou DUFAU  
+**License**: GPLv3+
+
+# Associates Manager – Guide d'utilisation 🚀
+
+---
+
+**FR | EN**
+
+Ce guide est disponible en français 🇫🇷 et en anglais 🇬🇧.
+
+---
+
+
+## 👀 Vue d'ensemble
+
+Le plugin **Associates Manager** permet de gérer facilement les associés et leurs parts dans GLPI, avec toutes les opérations d'ajout, modification, suppression et historique.
+
+## ✨ Fonctionnalités principales
+
+- 👤 Gestion des associés (personnes ou sociétés) liés à un fournisseur
+- 💼 Gestion des parts sociales et historique d'attribution
+- 🔗 Liaison automatique avec les contacts GLPI pour les personnes physiques
+- 📝 CRUD complet : **Ajouter**, **Modifier**, **Supprimer** associés, parts, historiques
+- ✅ Redirections et confirmations visuelles après chaque action
+- 🔒 Droits fins par profils GLPI (lecture, création, modification, suppression, purge)
+
+
+
+## 🌐 Intégration RNE (Registre National des Entreprises)
+
+Le plugin Associates Manager peut se connecter à l’API RNE (INPI) pour synchroniser automatiquement les bénéficiaires effectifs d’un fournisseur à partir de son SIREN.
+
+### 🔗 Fonctionnement avec RNE
+
+- Un bouton **Synchroniser avec RNE** apparaît sur la fiche fournisseur (si le SIREN est renseigné).
+- Lors de la synchronisation, le plugin interroge l’API RNE et propose d’ajouter ou mettre à jour les associés selon les bénéficiaires effectifs déclarés.
+- Les identifiants API RNE sont à configurer dans **Administration → Associates Manager → Configuration**.
+- Un historique de synchronisation et les éventuelles erreurs sont affichés à l’utilisateur.
+
+### 🚫 Fonctionnement sans RNE
+
+- Si aucun identifiant API RNE n’est configuré, ou si le SIREN n’est pas renseigné, la synchronisation automatique n’est pas disponible.
+- Toutes les opérations CRUD (ajout, modification, suppression) restent possibles manuellement.
+- Le plugin fonctionne alors en mode manuel, sans récupération automatique des bénéficiaires effectifs.
+
+> ℹ️ L’intégration RNE est optionnelle : le plugin reste pleinement fonctionnel même sans connexion à l’API RNE.
+
+---
+
+## 🌐 RNE Integration (French National Business Register)
+
+The Associates Manager plugin can connect to the RNE (INPI) API to automatically synchronize a supplier’s beneficial owners using its SIREN number.
+
+### 🔗 How it works with RNE
+
+- A **Synchronize with RNE** button appears on the supplier page (if SIREN is set).
+- When synchronizing, the plugin queries the RNE API and suggests adding or updating associates according to the declared beneficial owners.
+- RNE API credentials must be set in **Administration → Associates Manager → Configuration**.
+- A synchronization history and any errors are shown to the user.
+
+### 🚫 How it works without RNE
+
+- If no RNE API credentials are set, or if SIREN is missing, automatic synchronization is not available.
+- All CRUD operations (add, edit, delete) remain possible manually.
+- The plugin then works in manual mode, without automatic retrieval of beneficial owners.
+
+> ℹ️ RNE integration is optional: the plugin remains fully functional even without RNE API connection.
+
+---
+
+## 🛠️ Exemples d’utilisation CRUD
+
+### ➕ Ajouter un associé
+1. Cliquez sur **"Nouveau"** (icône ➕) en haut de la page "Associates"
+2. Remplissez le formulaire :
+   - **Nom** (obligatoire)
+   - **Type** : Personne ou Société (obligatoire)
+   - **Fournisseur** (obligatoire)
+   - **Contact** (optionnel)
+   - **Email**, **Téléphone**, **Adresse**
+3. Cliquez sur **"Ajouter"**
+
+> ℹ️ Si vous créez un associé de type "Personne" sans contact lié, un contact sera automatiquement créé et associé au fournisseur.
+
+### ✏️ Modifier un associé
+1. Cliquez sur le bouton **"Modifier"** (icône ✏️) sur la fiche de l'associé
+2. Modifiez les champs souhaités
+3. Cliquez sur **"Enregistrer"**
+
+### 🗑️ Supprimer un associé
+1. Cliquez sur le bouton **"Supprimer"** (icône 🗑️) sur la fiche de l'associé
+2. Confirmez la suppression
+
+### 🔄 Historique des parts
+1. Accédez à **Administration → Associates Manager → Parts History**
+2. Cliquez sur **"Nouveau"** pour ajouter une attribution de part
+3. Remplissez :
+   - **Associé** (obligatoire)
+   - **Part** (obligatoire)
+   - **Nombre de parts** (obligatoire)
+   - **Date d'attribution** (optionnel)
+   - **Date de fin** (optionnel)
+4. Cliquez sur **"Ajouter"**
+
+Pour visualiser l'historique d'un associé :
+1. Ouvrez la fiche d'un associé
+2. Cliquez sur l'onglet **"Parts History"**
+3. Vous verrez tout l'historique des parts attribuées à cet associé
+
+## 🔒 Gestion des droits
+
+Le plugin utilise un système de droits dédié : `plugin_associatesmanager`
+
+| Droit      | Description                        |
+|------------|------------------------------------|
+| **READ**   | Voir les données                   |
+| **CREATE** | Ajouter de nouveaux éléments       |
+| **UPDATE** | Modifier des éléments existants    |
+| **DELETE** | Supprimer des éléments             |
+| **PURGE**  | Suppression définitive             |
+
+> Les boutons "Nouveau" ou "Supprimer" n'apparaissent que si vous avez le droit correspondant.
+
+## 🧭 Navigation
+
+Le plugin ajoute un menu dans **Administration** :
+
+```
+Administration
+  └── Associates Manager
+       ├── Associates
+       ├── Parts
+       └── Parts History
+```
+
+## 🆘 Support
+
+Pour signaler un bug ou demander une fonctionnalité, contactez l'administrateur système ou ouvrez une issue sur le dépôt GitHub.
 
 ---
 
 **Version** : 1.0.4  
 **Auteur** : Lilou DUFAU  
 **Licence** : GPLv3+
+## Support
