@@ -52,6 +52,74 @@ chmod -R 755 associatesmanager
 
 1. Download the latest release
 2. Extract the archive to `/var/www/glpi/plugins/associatesmanager/`
+<div align="center">
+  <button onclick="document.getElementById('readme-fr').style.display='block';document.getElementById('readme-en').style.display='none';">🇫🇷 Version française</button>
+  <button onclick="document.getElementById('readme-en').style.display='block';document.getElementById('readme-fr').style.display='none';">🇬🇧 English version</button>
+</div>
+
+<div id="readme-fr" style="display:block;">
+
+# GestionAssociés – Plugin GLPI
+
+...existing code français...
+
+</div>
+
+<div id="readme-en" style="display:none;">
+
+# Associates Manager – GLPI Plugin (EN)
+
+[![GLPI Version](https://img.shields.io/badge/GLPI-v10.0.19+-blue.svg)](https://glpi-project.org/)
+[![PHP Version](https://img.shields.io/badge/PHP-7.4+-green.svg)](https://php.net/)
+[![License](https://img.shields.io/badge/License-GPLv2+-red.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
+[![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)]()
+
+The **Associates Manager Plugin** is an advanced plugin for GLPI (v10.0+ recommended) that enables full management of associates linked to suppliers, tracking of shares, change history, and native integration into the **Administration** menu.
+
+### ✨ Main Features
+- 👤 Manage associates (individuals or companies) linked to a supplier
+- 💼 Manage shares and share history
+- 🔗 Automatic link with GLPI contacts for individuals
+- 📝 Full CRUD: **Add**, **Edit**, **Delete** associates, shares, history
+- ✅ Visual confirmation after each action
+- 🔒 Fine-grained rights by GLPI profile (read, create, update, delete, purge)
+- 🌍 Multilingual support (French)
+
+## 🛠️ CRUD Usage Examples
+
+- ➕ **Add** an associate: "New" button → form → validate
+- ✏️ **Edit** an associate: "Edit" button on the record → form → validate
+- 🗑️ **Delete** an associate: "Delete" button → confirmation
+- 🔄 **History**: every share modification is tracked
+
+## 🔒 Rights Management
+
+- **READ**: View data
+- **CREATE**: Add
+- **UPDATE**: Edit
+- **DELETE**: Delete
+- **PURGE**: Permanent deletion
+
+## 📦 Installation
+
+### Requirements
+- GLPI 10.0+ recommended
+- PHP 7.4+ (or 8.1+ depending on GLPI version)
+- MySQL 5.7+ or MariaDB
+
+### Method 1: Install from GitHub
+
+```bash
+cd /var/www/glpi/plugins
+git clone https://github.com/LilouDUFAU/associatesmanager.git
+chown -R www-data:www-data associatesmanager
+chmod -R 755 associatesmanager
+```
+
+### Method 2: Manual installation
+
+1. Download the latest release
+2. Extract the archive to `/var/www/glpi/plugins/associatesmanager/`
 
 ### Activation
 
@@ -109,8 +177,6 @@ associatesmanager/
 - **History**: every share modification is recorded
 - **GLPI interoperability**: link with GLPI contacts for individuals and with suppliers
 
-
-
 ## 🤝 Contributing
 
 Contributions are welcome! To contribute:
@@ -160,56 +226,7 @@ This project is licensed under **GPL v2+** – see [LICENSE](LICENSE) for detail
 
 ⭐ **Don’t hesitate to star this plugin if you found it useful!**
 
-# GestionAssociés – Plugin GLPI
-
----
-
-**FR | EN**
-
-Ce document est disponible en français 🇫🇷 et en anglais 🇬🇧.
-
----
-
-## ✨ Main Features (EN)
-
-- 👤 Manage associates (individuals or companies) linked to a supplier
-- 💼 Manage shares and share history
-- 🔗 Automatic link with GLPI contacts for individuals
-- 📝 Full CRUD: **Add**, **Edit**, **Delete** associates, shares, history
-- ✅ Visual confirmation after each action
-- 🔒 Fine-grained rights by GLPI profile (read, create, update, delete, purge)
-- 🌍 Multilingual support (French)
-
----
-
-[![GLPI Version](https://img.shields.io/badge/GLPI-v10.0.19+-blue.svg)](https://glpi-project.org/)
-[![PHP Version](https://img.shields.io/badge/PHP-7.4+-green.svg)](https://php.net/)
-[![License](https://img.shields.io/badge/License-GPLv2+-red.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Status](https://img.shields.io/badge/Status-Stable-brightgreen.svg)]()
-
-
-Le **Plugin Associates Manager** est un plugin avancé pour GLPI (v10.0+ recommandé) permettant la gestion complète des associés liés aux fournisseurs, le suivi des parts sociales, l'historique des modifications, et l'intégration native dans le menu **Administration**.
-
-
-
-### ✨ Fonctionnalités principales
-- 👤 Gestion des associés (personnes ou sociétés) liés à un fournisseur
-- 💼 Gestion des parts sociales et historique d'attribution
-- 🔗 Liaison automatique avec les contacts GLPI pour les personnes physiques
-- 📝 CRUD complet : **Ajouter**, **Modifier**, **Supprimer** associés, parts, historiques
-- ✅ Redirections et confirmations visuelles après chaque action
-- 🔒 Droits fins par profils GLPI (lecture, création, modification, suppression, purge)
-- 🌍 Support multilingue (français)
-
-## 🛠️ Exemples d’utilisation CRUD
-
-- ➕ **Ajouter** un associé : bouton "Nouveau" → formulaire → valider
-- ✏️ **Modifier** un associé : bouton "Modifier" sur la fiche → formulaire → valider
-- 🗑️ **Supprimer** un associé : bouton "Supprimer" → confirmation
-- 🔄 **Historique** : chaque modification de parts est tracée
-
-## 🔒 Gestion des droits
-
+</div>
 - **READ** : Voir les données
 - **CREATE** : Ajouter
 - **UPDATE** : Modifier

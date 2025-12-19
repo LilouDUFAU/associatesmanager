@@ -190,72 +190,25 @@ The Associates Manager plugin can connect to the RNE (INPI) API to automatically
 1. Cliquez sur **"Nouveau"** (icône ➕) en haut de la page "Associates"
 2. Remplissez le formulaire :
    - **Nom** (obligatoire)
-   - **Type** : Personne ou Société (obligatoire)
-   - **Fournisseur** (obligatoire)
-   - **Contact** (optionnel)
-   - **Email**, **Téléphone**, **Adresse**
-3. Cliquez sur **"Ajouter"**
 
-> ℹ️ Si vous créez un associé de type "Personne" sans contact lié, un contact sera automatiquement créé et associé au fournisseur.
+   <div align="center">
+     <button onclick="document.getElementById('guide-fr').style.display='block';document.getElementById('guide-en').style.display='none';">🇫🇷 Version française</button>
+     <button onclick="document.getElementById('guide-en').style.display='block';document.getElementById('guide-fr').style.display='none';">🇬🇧 English version</button>
+   </div>
 
-### ✏️ Modifier un associé
-1. Cliquez sur le bouton **"Modifier"** (icône ✏️) sur la fiche de l'associé
-2. Modifiez les champs souhaités
-3. Cliquez sur **"Enregistrer"**
+   <div id="guide-fr" style="display:block;">
 
-### 🗑️ Supprimer un associé
-1. Cliquez sur le bouton **"Supprimer"** (icône 🗑️) sur la fiche de l'associé
-2. Confirmez la suppression
+   # Associates Manager – Guide d'utilisation 🚀
 
-### 🔄 Historique des parts
-1. Accédez à **Administration → Associates Manager → Parts History**
-2. Cliquez sur **"Nouveau"** pour ajouter une attribution de part
-3. Remplissez :
+   ...existing code français...
+
+   </div>
+
+   <div id="guide-en" style="display:none;">
+
+   # Associates Manager – User Guide (EN)
+
+   ...existing code anglais...
+
+   </div>
    - **Associé** (obligatoire)
-   - **Part** (obligatoire)
-   - **Nombre de parts** (obligatoire)
-   - **Date d'attribution** (optionnel)
-   - **Date de fin** (optionnel)
-4. Cliquez sur **"Ajouter"**
-
-Pour visualiser l'historique d'un associé :
-1. Ouvrez la fiche d'un associé
-2. Cliquez sur l'onglet **"Parts History"**
-3. Vous verrez tout l'historique des parts attribuées à cet associé
-
-## 🔒 Gestion des droits
-
-Le plugin utilise un système de droits dédié : `plugin_associatesmanager`
-
-| Droit      | Description                        |
-|------------|------------------------------------|
-| **READ**   | Voir les données                   |
-| **CREATE** | Ajouter de nouveaux éléments       |
-| **UPDATE** | Modifier des éléments existants    |
-| **DELETE** | Supprimer des éléments             |
-| **PURGE**  | Suppression définitive             |
-
-> Les boutons "Nouveau" ou "Supprimer" n'apparaissent que si vous avez le droit correspondant.
-
-## 🧭 Navigation
-
-Le plugin ajoute un menu dans **Administration** :
-
-```
-Administration
-  └── Associates Manager
-       ├── Associates
-       ├── Parts
-       └── Parts History
-```
-
-## 🆘 Support
-
-Pour signaler un bug ou demander une fonctionnalité, contactez l'administrateur système ou ouvrez une issue sur le dépôt GitHub.
-
----
-
-**Version** : 1.0.4  
-**Auteur** : Lilou DUFAU  
-**Licence** : GPLv3+
-## Support
