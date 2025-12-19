@@ -1,0 +1,3 @@
+# Associates Manager – GLPI Plugin (EN)
+
+...full English content of the README...

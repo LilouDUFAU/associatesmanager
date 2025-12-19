@@ -1,0 +1,3 @@
+# GestionAssociés – Plugin GLPI
+
+...contenu complet en français du README...
