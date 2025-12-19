@@ -109,41 +109,7 @@ associatesmanager/
 - **History**: every share modification is recorded
 - **GLPI interoperability**: link with GLPI contacts for individuals and with suppliers
 
-## 📚 Developer Documentation
-### Available hooks
-```php
-// to be completed
-```
 
-### Example: creating an associate
-```php
-// to be completed
-```
-
-## 📈 Roadmap
-### Upcoming
-- 🔄 Automatic synchronization of GLPI contacts
-- 📁 CSV export of share history
-- 🔔 Notifications on share changes
-- 🧩 Compatibility with other GLPI plugins
-
-In case of problems:
-- Check GLPI logs: `files/_log/`
-- Check permissions on the plugin folder and GLPI cache
-- Clear GLPI cache if needed
-- See the official GLPI documentation
-- Make sure the plugin is enabled
-
-**Rights issues**
-- Test with an account with all rights
-
-### Logs
-
-Errors are logged in GLPI logs:
-```
-files/_log/php-errors.log
-files/_log/sql-errors.log
-```
 
 ## 🤝 Contributing
 
@@ -331,41 +297,7 @@ Le plugin crée 2 tables principales :
 - **Historisation** : chaque modification de parts est enregistrée
 - **Interopérabilité GLPI** : lien avec les contacts GLPI pour les personne physiques et avec les fournisseurs (pour lier fournisseur et associés)
 
-## 📚 Documentation développeur
-### Hooks disponibles
-```php
-// faire
-```
 
-### Exemple de création d’un associé
-```php
-// faire
-```
-
-## 📈 Roadmap
-### À venir
-- 🔄 Synchronisation automatique des contacts GLPI
-- 📁 Export CSV des historiques de parts
-- 🔔 Notifications sur modification de parts
-- 🧩 Compatibilité avec d’autres plugins GLPI
-
-En cas de problème :
-- Vérifiez les logs GLPI : `files/_log/`
-- Vérifiez les permissions sur le dossier du plugin et le cache GLPI
-- Videz le cache GLPI si besoin
-- Consultez la documentation GLPI officielle
-- Confirmez que le plugin est activé
-
-**Problèmes de droits**
-- Testez avec un compte ayant tous les droits
-
-### Logs
-
-Les erreurs sont enregistrées dans les logs GLPI :
-```
-files/_log/php-errors.log
-files/_log/sql-errors.log
-```
 
 ## 🤝 Contribution
 

@@ -1,5 +1,8 @@
 ---
+
 # Associates Manager – User Guide (EN)
+
+<p align="right"><a href="#associates-manager--guide-dutilisation-🚀" style="font-weight:bold;">🇫🇷 Version française</a></p>
 
 ## 👀 Overview
 
@@ -110,7 +113,10 @@ To report a bug or request a feature, contact your system administrator or open 
 **Author**: Lilou DUFAU  
 **License**: GPLv3+
 
+
 # Associates Manager – Guide d'utilisation 🚀
+
+<p align="right"><a href="#associates-manager--user-guide-en" style="font-weight:bold;">🇬🇧 English version</a></p>
 
 ---
 
